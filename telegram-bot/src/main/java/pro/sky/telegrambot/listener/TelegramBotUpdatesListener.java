@@ -7,7 +7,9 @@ import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import pro.sky.telegrambot.interfacies.NotificationService;
@@ -15,6 +17,7 @@ import pro.sky.telegrambot.model.Notifications;
 
 import javax.annotation.PostConstruct;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TelegramBotUpdatesListener implements UpdatesListener {
@@ -39,52 +42,77 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
             // проверяю на соответсвие текста в отправленном юзером сообщении
             // требуемому сообщению
             if (update.message().text().equals("/start")) {
-                SendResponse response = greeting(update);
+                SendResponse response = notificationService.greeting(update);
                 //проверяю ушел ли ответ и нет ли ошибок
                 System.out.println(response.isOk());
                 System.out.println(response.errorCode());
-            } else {
-//                notificationService.saveNotificationToDB(update);
-                giveReport(update);
-                //  что делаею если это не /start
-                // вызываю метод сервиса распарсить сообщение и созадть сущность напомининие
-                // и сохраняю в БД
-            }
+            } else
+                // снова проверяю текст в сообщении, если он соответствует команде,
+                // то выполняю метод
+                if (update.message().text().equals("/list-all")) {
+                    // вызываю метод для получения полного списка напоминаний пользователя
+                    List<Notifications> notificationsList = notificationService.getListOfAllNotification(update);
+                    notificationService.makeNotificationWithDate(notificationsList)
+                            .forEach(n -> {
+                                // передаю SendMessage в .execute() - метод = сообщение отправлено в нужный чат
+                                SendResponse response = telegramBot.execute(n);
+                                System.out.println(response.isOk());
+                                System.out.println(response.errorCode());
+                            });
+                } else if (update.message().text().equals("/list-today")) {
+                    List<Notifications> notificationsList = notificationService.getListNotificationForToday(update);
+                    // создаю из Напоминианий сущности SendMessage и собираю в список, для последующей отправки пользователю
+                    notificationService.makeNotificationWithDate(notificationsList)
+                            .forEach(n -> {
+                                // передаю SendMessage в .execute() - метод = сообщение отправлено в нужный чат
+                                SendResponse response = telegramBot.execute(n);
+                                System.out.println(response.isOk());
+                                System.out.println(response.errorCode());
+                            });
+                } else if (update.message().text().equals("/list-cleare")) {
+                    // очищаю список напоминаний (реально удалятся при ежедневной очистке БД)
+                    SendMessage message = notificationService.cleareMyListNotifications(update);
+                    telegramBot.execute(message);
+                    logger.info("выполнился метод cleareMyListNotifications");
+                } else {
+                    notificationService.giveReport(update);
+                    // вызываю метод сервиса, парсю сообщение, созадаю сущность "напомининие"
+                    // и сохраняю в БД
+                }
         });
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
+    // раз в минуту выполнятеся
     public int notifies() {
+        // сначала проеряет имеются ли в БД напоминания на эту минуту - вернет список напоминаний,
+        // если такие есть
         List<Notifications> notificationsList = notificationService.checkCurrentNotifications();
-        if (notificationsList != null) {
+        // если список непустой - вызывается метод makeNotification, который возвращает List<SendMessage>
+        // который несет id чата (кому это сообщение нужно отправить) и текст сообщения,
+        // который нужно отправить
+        if (!notificationsList.isEmpty()) {
             notificationService.makeNotification(notificationsList)
-                    .stream().forEach(n->
-                            telegramBot.execute(n)
-                    );
+                    .forEach(n -> {
+                        // передаю SendMessage в .execute() - метод = сообщение отправлено в нужный чат
+                        SendResponse response = telegramBot.execute(n);
+                        System.out.println(response.isOk());
+                        System.out.println(response.errorCode());
+                    });
+            logger.info("выполнился метод notifies");
         }
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
 
-    private SendResponse greeting(Update update) {
-        //получаю id чата, формирую сообщение, которое буду отправлять обратно в этот чат
-        // создаю сущность ответа и возвращаю ее
-        Long idChat = update.message().chat().id();
-        SendMessage message = new SendMessage(idChat, "Hi! I'm ready to start. " +
-                "I'm waiting for format like this: DD.MM.YYYY HH:MM TEXT_NOTIFICATION");
-        return telegramBot.execute(message);
-
-    }
-
-    private SendResponse giveReport(Update update) {
-        Long idChat = update.message().chat().id();
-        SendMessage message = new SendMessage(idChat, "Notification added");
-        SendMessage negativeMessage = new SendMessage(idChat, "Notification didn't add. Wrong format!");
-        if (notificationService.saveNotificationToDB(update) != null) {
-            return telegramBot.execute(message);
-        } else {
-            return telegramBot.execute(negativeMessage);
-        }
+    @Scheduled(cron = "0 00 23 * * *")
+    // метод удаляет устаревшие напоминания из БД
+    // не доработан, после чистки БД почему-то все равно выкидывает ошибку
+    // JpaSystemException: could not extract ResultSet;
+    // nested exception is org.hibernate.exception.GenericJDBCException: could not extract ResultSet
+    public void deleteOldNotifications() {
+        notificationService.deleteOldNotification();
+        logger.info("выполнился метод deleteOldNotifications - устаревшие напоминания удалены");
     }
 
 }
