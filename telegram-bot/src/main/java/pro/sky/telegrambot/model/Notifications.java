@@ -1,23 +1,22 @@
 package pro.sky.telegrambot.model;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
 public class Notifications {
     @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @JoinColumn(name = "chat_id")
+    @Column(name = "chat_id")
     private Long chatId;
-    @JoinColumn(name = "notification_text")
+    @Column(name = "notification_text")
     private String notificationText;
-    @JoinColumn(name = "date_time")
+    @Column(name = "date_time")
     private LocalDateTime dateTime;
-    @JoinColumn(name = "name")
+    @Column(name = "name")
     private String nameOfUser;
 
     public Notifications() {

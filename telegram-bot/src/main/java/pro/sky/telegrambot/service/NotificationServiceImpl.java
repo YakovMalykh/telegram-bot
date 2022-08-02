@@ -34,7 +34,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public SendResponse greeting(Update update) {
+    public SendMessage greeting(Update update) {
         //получаю id чата, формирую сообщение, которое буду отправлять обратно в этот чат
         // создаю сущность ответа и возвращаю ее
         Long idChat = update.message().chat().id();
@@ -46,7 +46,7 @@ public class NotificationServiceImpl implements NotificationService {
                 "\n/list-today - to get a list of reminders for today" +
                 "\n/list-cleare - clear all your reminders");
         logger.info("Выполнился метод greeting");
-        return telegramBot.execute(message);
+        return message;
     }
     // получаю имя пользователя, выбирая из firstName и username,
     // указанного пользователем при регистрации в telegram
@@ -85,7 +85,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     // проверяет на наличие точно такого же напоминания в БД
-    private Boolean notificationIsUnique(Notifications notification) {
+    public Boolean notificationIsUnique(Notifications notification) {
         if (notificationsRepository.findAll().contains(notification)) {
             return false;
         }
@@ -176,17 +176,17 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     // отправляет в чат отчет добавлено напоминание или нет
-    public SendResponse giveReport(Update update) {
+    public SendMessage giveReport(Update update) {
         Long idChat = update.message().chat().id();
         SendMessage message = new SendMessage(idChat, "Notification added");
         SendMessage negativeMessage = new SendMessage(idChat, "Notification didn't add. \nWrong format or \nNotification already exists or" +
                 "\nPast time");
         if (saveNotificationToDB(update) != null) {
             logger.info("метод giveReport выполняется успешно");
-            return telegramBot.execute(message);
+            return message;
         } else {
             logger.info("метод giveReport завершается провалом");
-            return telegramBot.execute(negativeMessage);
+            return negativeMessage;
         }
     }
 

@@ -8,10 +8,10 @@ import pro.sky.telegrambot.model.Notifications;
 import java.util.List;
 
 public interface NotificationService {
-    SendResponse greeting(Update update);
+    SendMessage greeting(Update update);
 
-    public Notifications saveNotificationToDB(Update update);
-    public List<Notifications> checkCurrentNotifications();
+    Notifications saveNotificationToDB(Update update);
+    List<Notifications> checkCurrentNotifications();
 
 
     List<Notifications> getListOfAllNotification(Update update);
@@ -24,7 +24,7 @@ public interface NotificationService {
 
     List<SendMessage> makeNotificationWithDate(List<Notifications> notificationsList);
 
-    public SendResponse giveReport(Update update);
+    SendMessage giveReport(Update update);
 
     void deleteOldNotification();
 }

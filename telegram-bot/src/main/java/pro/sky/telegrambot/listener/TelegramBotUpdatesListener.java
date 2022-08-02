@@ -41,44 +41,48 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
             logger.info("Processing update: {}", update);
             // проверяю на соответсвие текста в отправленном юзером сообщении
             // требуемому сообщению
-            if (update.message().text().equals("/start")) {
-                SendResponse response = notificationService.greeting(update);
-                //проверяю ушел ли ответ и нет ли ошибок
-                System.out.println(response.isOk());
-                System.out.println(response.errorCode());
-            } else
-                // снова проверяю текст в сообщении, если он соответствует команде,
-                // то выполняю метод
-                if (update.message().text().equals("/list-all")) {
+
+            switch (update.message().text()) {
+                case "/start":
+                    SendMessage message0 = notificationService.greeting(update);
+                    SendResponse response = telegramBot.execute(message0);
+                    //проверяю ушел ли ответ и нет ли ошибок
+                    System.out.println(response.isOk());
+                    System.out.println(response.errorCode());
+                    break;
+                case "/list-all":
                     // вызываю метод для получения полного списка напоминаний пользователя
-                    List<Notifications> notificationsList = notificationService.getListOfAllNotification(update);
-                    notificationService.makeNotificationWithDate(notificationsList)
+                    List<Notifications> notificationsList1 = notificationService.getListOfAllNotification(update);
+                    notificationService.makeNotificationWithDate(notificationsList1)
                             .forEach(n -> {
                                 // передаю SendMessage в .execute() - метод = сообщение отправлено в нужный чат
-                                SendResponse response = telegramBot.execute(n);
-                                System.out.println(response.isOk());
-                                System.out.println(response.errorCode());
+                                SendResponse response1 = telegramBot.execute(n);
+                                System.out.println(response1.isOk());
+                                System.out.println(response1.errorCode());
                             });
-                } else if (update.message().text().equals("/list-today")) {
-                    List<Notifications> notificationsList = notificationService.getListNotificationForToday(update);
+                    break;
+                case "/list-today":
+                    List<Notifications> notificationsList2 = notificationService.getListNotificationForToday(update);
                     // создаю из Напоминианий сущности SendMessage и собираю в список, для последующей отправки пользователю
-                    notificationService.makeNotificationWithDate(notificationsList)
+                    notificationService.makeNotificationWithDate(notificationsList2)
                             .forEach(n -> {
                                 // передаю SendMessage в .execute() - метод = сообщение отправлено в нужный чат
-                                SendResponse response = telegramBot.execute(n);
-                                System.out.println(response.isOk());
-                                System.out.println(response.errorCode());
+                                SendResponse response2 = telegramBot.execute(n);
+                                System.out.println(response2.isOk());
+                                System.out.println(response2.errorCode());
                             });
-                } else if (update.message().text().equals("/list-cleare")) {
+                    break;
+                case "/list-cleare":
                     // очищаю список напоминаний (реально удалятся при ежедневной очистке БД)
                     SendMessage message = notificationService.cleareMyListNotifications(update);
                     telegramBot.execute(message);
                     logger.info("выполнился метод cleareMyListNotifications");
-                } else {
-                    notificationService.giveReport(update);
+                    break;
+                default:
+                    telegramBot.execute(notificationService.giveReport(update));
                     // вызываю метод сервиса, парсю сообщение, созадаю сущность "напомининие"
                     // и сохраняю в БД
-                }
+            }
         });
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
@@ -105,11 +109,8 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
 
-    @Scheduled(cron = "0 00 23 * * *")
+    @Scheduled(cron = "0 43 17 * * *")
     // метод удаляет устаревшие напоминания из БД
-    // не доработан, после чистки БД почему-то все равно выкидывает ошибку
-    // JpaSystemException: could not extract ResultSet;
-    // nested exception is org.hibernate.exception.GenericJDBCException: could not extract ResultSet
     public void deleteOldNotifications() {
         notificationService.deleteOldNotification();
         logger.info("выполнился метод deleteOldNotifications - устаревшие напоминания удалены");
